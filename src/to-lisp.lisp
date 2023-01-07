@@ -80,6 +80,27 @@
   "Return the CLOS object VALUE"
   (json-to-clos value json-type))
 
+(defmethod to-lisp-value ((value hash-table) (json-type cons))
+  (ecase (first json-type)
+    (:hash-table
+     (let* ((key-type
+              (second json-type))
+            (hash-table
+              (make-hash-table :size (hash-table-size value)
+                               :test (case key-type
+                                       ((:string :any)
+                                        (function equal))
+                                       (otherwise
+                                        (function eql))))))
+       (maphash #'(lambda (key value)
+                    (setf (gethash (to-lisp-value key
+                                                  key-type)
+                                   hash-table)
+                          (to-lisp-value value
+                                         (third json-type))))
+                value)
+       hash-table))))
+
 (defgeneric json-to-clos (input class &rest initargs))
 
 (defmethod json-to-clos ((input hash-table) class &rest initargs)
