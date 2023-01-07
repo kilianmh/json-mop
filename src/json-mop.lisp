@@ -57,4 +57,26 @@
          (append direct-superclasses (list (find-class 'json-serializable)))
          rest))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun expand-slot (json-key json-type rest)
+    (let ((slot-symbol
+            (intern (str:upcase (str:param-case json-key)))))
+      (if rest
+          `(,slot-symbol
+            :json-type ,json-type
+            :json-key ,json-key
+            :accessor ,slot-symbol
+            ,@rest)
+          `(,slot-symbol
+            :json-type ,json-type
+            :json-key ,json-key
+            :accessor ,slot-symbol)))))
 
+(defmacro json-class (name direct-superclasses slots)
+  `(defclass ,name ,direct-superclasses
+     (,@(mapcar #'(lambda (slot)
+                    (expand-slot (first slot)
+                                     (second slot)
+                                     (cddr slot)))
+                  slots))
+     (:metaclass json-mop:json-serializable-class)))
