@@ -26,7 +26,8 @@
   :license "MIT"
   :depends-on (#:closer-mop
                #:yason
-               #:anaphora)
+               #:anaphora
+	       #:str)
   :serial t
   :components ((:module "src"
                 :serial t

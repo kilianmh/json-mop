@@ -30,4 +30,5 @@
   :components ((:file "package")
                (:file "tests")
                (:file "encode-decode")
-               (:file "redefine-class")))
+               (:file "redefine-class")
+	       (:file "define-json-class")))

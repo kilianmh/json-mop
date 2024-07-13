@@ -32,11 +32,14 @@
                 #:with-output
                 #:with-array
                 #:with-object)
+  (:import-from #:str
+		#:param-case)
   (:import-from #:anaphora
                 #:awhen
                 #:it)
   (:export #:json-serializable
            #:json-serializable-class
+	   #:define-json-class
            #:to-lisp-value
            #:to-json-value
            #:json-to-clos

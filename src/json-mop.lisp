@@ -65,3 +65,98 @@
          (append direct-superclasses (list (find-class 'json-serializable)))
          rest))
 
+(defmethod expand-slot ((rest list))
+  (flet ((slot-option-p (item)
+	   (member item (list :reader :write :accessor :allocation
+			      :initarg :initform :type :documentation
+			      :json-type :json-key))))
+    (let ((first
+	    (first rest))
+	  (second
+	    (second rest)))
+      (etypecase first
+	(symbol
+	 (if (slot-option-p second)
+	     rest
+	     (let ((third (third rest)))
+	       (if (or (null third) (slot-option-p third))
+		   (list* first
+			  :json-key second
+			  (cddr rest))
+		   (list* first
+			  :json-key second
+			  :json-type third
+			  (cdddr rest))))))
+	(string
+	 (if (slot-option-p second)
+	    (list* (intern (string-upcase (str:param-case first)))
+		   :json-key first
+		   (cdr rest))
+	    (list* (intern (string-upcase (str:param-case first)))
+		   :json-key first
+		   :json-type second
+		   (cddr rest))))))))
+
+(defun slot-option-p (item)
+  (member item (list :reader :write :accessor :allocation
+		     :initarg :initform :type :documentation
+		     :json-type :json-key)))
+
+(deftype slot-option ()
+  '(and keyword (satisfies slot-option-p)))
+
+(defun json-mop-type-p (item)
+  (member item (list :any :string :integer :number :hash-table
+			  :vector :list :bool)))
+
+(deftype json-mop-type ()
+  '(and keyword (satisfies json-mop-type-p)))
+
+(deftype non-keyword-symbol ()
+  '(and symbol (not keyword)))
+
+(defun json-mop-composite-type-p (item)
+  (and (member (first item) (list :hash-table :vector :list))
+       (typep (second item) '(or json-mop-type
+			      non-keyword-symbol))))
+
+(deftype json-mop-composite-type ()
+  (quote
+   (and cons (satisfies json-mop-composite-type-p))))
+
+(defmacro define-json-class (name direct-superclasses direct-slots &rest options)
+  (labels ((expand-slot (slot-specifier)
+	     (let ((first
+		     (first slot-specifier))
+		   (second
+		     (second slot-specifier)))
+	       (etypecase first
+		 (symbol
+		  (etypecase second
+		    (slot-option
+		     slot-specifier)
+		    (string
+		     (let ((third
+			     (third slot-specifier)))
+		       (etypecase third
+			 (slot-option
+			  (list* first :json-key second (cddr slot-specifier)))
+			 ((or json-mop-type non-keyword-symbol json-mop-composite-type)
+			  (list* first :json-key second :json-type third
+				 (cdddr slot-specifier))))))))
+		 (string
+		  (let ((slot-name
+			  (intern (string-upcase (str:param-case first)))))
+		    (if (= (length slot-specifier) 1)
+			(list slot-name :json-key first)
+			(etypecase second
+			  (slot-option
+			   (list* slot-name :json-key first
+				  (cdr slot-specifier)))
+			  ((or non-keyword-symbol json-mop-type json-mop-composite-type)
+			   (list* slot-name :json-key first :json-type second
+				  (cddr slot-specifier)))))))))))
+    (list* 'defclass name direct-superclasses
+	   (mapcar #'expand-slot direct-slots)
+	   (list :metaclass 'json-mop:json-serializable-class)
+	   options)))
