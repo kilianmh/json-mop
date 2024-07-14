@@ -133,13 +133,34 @@ All slots, direct or inherited, that exist in class CLASS-OBJ are considered."
                                   :class-name class))
     (values lisp-object key-count)))
 
+
+(defmethod json-to-clos :after ((input hash-table) class &rest initargs)
+  "Check if all required slots are present in input hash-table."
+  (declare (ignore initargs))
+  (when *check-required-slots*
+    (let ((class-object
+          (find-class class)))
+    (declare (type json-serializable-class class-object))
+    (loop for slot in (closer-mop:class-direct-slots class-object)
+          do (when (json-required slot)
+               (let ((json-key-name
+                       (json-key-name slot)))
+                 (declare (type string json-key-name))
+                 (unless (gethash json-key-name input)
+		   (cerror "There is no json-key \"~A\" in this object of class ~A:~2&~2&The value should be of type ~A."
+			   json-key-name
+			   (class-name class-object)
+			   ;(yason:with-output-to-string* () (yason:encode input))
+			   (json-type slot)))))))))
+
+
 (defmethod json-to-clos ((input stream) class &rest initargs)
   (apply #'json-to-clos
          (parse input
-                      :object-as :hash-table
-                      :json-arrays-as-vectors t
-                      :json-booleans-as-symbols t
-                      :json-nulls-as-keyword t)
+                :object-as :hash-table
+                :json-arrays-as-vectors t
+                :json-booleans-as-symbols t
+                :json-nulls-as-keyword t)
          class initargs))
 
 (defmethod json-to-clos ((input pathname) class &rest initargs)

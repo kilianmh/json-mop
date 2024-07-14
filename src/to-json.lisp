@@ -145,16 +145,40 @@
       (loop for class in (closer-mop:class-precedence-list (class-of object))
          do (loop for slot in (closer-mop:class-direct-slots class)
                when (typep slot 'json-serializable-slot)
-               do (awhen (json-key-name slot)
-                    (handler-case
-                        (encode-object-element
-                         it
-                         (to-json-value
-                          (slot-value object (closer-mop:slot-definition-name slot))
-                          (json-type slot)))
+		 do (awhen (json-key-name slot)
+		      (handler-case
+			  (let ((json-type
+				  (json-type slot))
+				(slot-definition-name
+				  (closer-mop:slot-definition-name slot)))
+			    (if *check-required-slots*
+				(if (slot-boundp object slot-definition-name)
+				    (encode-object-element
+				     it
+				     (to-json-value (slot-value object slot-definition-name)
+						    json-type))
+				    (when (eq (json-required slot) t)
+				      (cerror "The slot ~A for json-key \"~A\" is unbound in an instance of class ~A~2%~A
+~%The value should be of type ~A."
+					     slot-definition-name it (class-name (class-of object))
+					     (let ((*check-required-slots* nil))
+					       (encode object))
+					     json-type)))
+				(encode-object-element
+				 it
+				 (to-json-value
+				  (slot-value object (closer-mop:slot-definition-name slot))
+				  (json-type slot)))))
+			
                       (unbound-slot (condition)
                         (declare (ignore condition))
                         (when *encode-unbound-slots*
                           (encode-object-element it nil)))))))))
   object)
 
+(defmethod print-object ((object json-serializable) stream)
+  (let ((*check-required-slots* nil))
+    (print-unreadable-object (object stream :type t :identity t)
+      (when *print-verbose*
+	(encode object stream)))))
+  

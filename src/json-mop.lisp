@@ -22,6 +22,9 @@
 
 (in-package #:json-mop)
 
+(defvar *check-required-slots* t)
+(defvar *print-verbose* t)
+
 (defclass json-serializable-class (closer-mop:standard-class) ())
 
 (defmethod closer-mop:validate-superclass ((class json-serializable-class)
@@ -36,7 +39,11 @@
              :reader json-key-name)
    (json-type :initarg :json-type
               :initform :any
-              :reader json-type)))
+              :reader json-type)
+   (json-required :initarg :json-required
+		  :initform nil
+		  :type boolean
+		  :reader json-required)))
 
 (defmethod json-key-name ((slot closer-mop:standard-direct-slot-definition))
   (warn 'slot-not-serializable
